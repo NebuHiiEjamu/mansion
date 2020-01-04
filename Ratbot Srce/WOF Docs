@@ -1,0 +1,102 @@
+Wheel of Cheese
+
+This is an example of a bot - an extension of the palace client that communicates
+with the server, but has no local interface to speak of, except for a few macro
+commands:
+
+The code for "Wheel of Cheese" was adopted from an IRC bot I wrote for playing
+the same game.  In the IRC version there are actually two bots, "patbot" who
+runs this code, and "vannabot" which is a simply dummy that echoes whatever "patbot"
+tells her (via private messages).  In the Palace variant, there is no "vannabot",
+instead, vanna is just a prop.
+
+Note: the code for this bot is not a true "plug-in", but instead was added to a
+copy of the Macintosh client that has the symbol BOTCODE turned on, to enable
+the links to the bot.
+
+There are two principal entry points for this bot:
+
+	void	ProcessBotMacro(char *str);		// Process typed in commands
+
+		and
+
+											// Process palace events
+	Boolean BotEntryPoint(RoomWindowPtr	gRoomWin, 
+					long eventType, long refCon, long length, char *buffer);
+
+
+The typed in commands that this bot responds to are:
+
+	~on					(start the game)
+	~off				(stop the game)
+	~trivia				(switch to a trivia game (a different game))
+	~vanna on|off		(work with/without vannabot (no longer supported))
+	~nick handle nick	(register a nickname for the player using handle)
+
+The following changes were made to the Palace client code to support these modules:
+
+LOCAL.H (a platform & project specific header file)
+	#define BOTCODE		1
+
+// Function prototypes for the two bot entry points
+PROTOS.H (function prototypes - shared code)
+	#if BOTCODE
+	void	ProcessBotMacro(char *str);
+	Boolean BotEntryPoint(RoomWindowPtr	gRoomWin, 
+					long eventType, long refCon, long length, char *buffer);
+	#endif
+	
+// A mechanism for idling
+U-ALARMS.C (iptscrae alarm/idle handling)
+	void AlarmsIdle(void)
+	{
+	#if BOTCODE
+		BotEntryPoint(gRoomWin, 0L, 0L, 0L, "");
+	#endif
+...
+
+// A mechanism for parsing new ~ commands
+U-CMDS.C (palace commands & macros)
+	void ProcessMacro(char *str)
+	{
+		long		cmd;
+	#if BOTCODE
+		ProcessBotMacro(str);
+	#endif
+	.
+	.
+	.
+
+// A mechanism for intercepting palace events
+U-EVENTS.C (palace event processing)
+	void ProcessMansionEvent(long cmd, long msgRefCon, char *buffer, long len)
+	{
+	#if BOTCODE
+		if (BotEntryPoint(gRoomWin, cmd, msgRefCon, len, buffer))
+			return;
+	#endif
+	.
+	.
+	.
+The Wheel of Cheese bot is programmed like a state machine.  The bot changes
+state either in response to player (or controller) input, or timeout.  
+
+The following states are defined in WofBot.h:
+
+	G_Inactive			Bot is not running
+	G_Idle				Bot will begin a game as soon as there are > 1 players.
+	G_WaitNextGame		A game has just ended - bot waits 15 seconds, then goes idle.
+	G_WaitSpin			Bot is waiting for player to spin.
+	G_WaitVowel			Bot is waiting for player to name a vowel.
+	G_WaitSolve, 		Bot is waiting for player to solve the puzzle.
+	G_WaitCons			Bot is waiting for player to name a consonant.
+	G_WaitFreeSpin		Bot is waiting for a player to use free spin or pass.
+	G_WaitFinal1		Bot is waiting for finalist to name 3 vowels and consonant.
+	G_WaitFinal2		Bot is waiting for finalist to solve puzzle.
+
+
+Finally, although much of the Wheel of Cheese bot code is portable, it relies on
+the Macintosh resource manager to retrieve the puzzles & prizes text.  In the
+routines SelectPuzzle() and SelectPrize(), LoadTopScores() you'll see these 
+resource routines.  The text for these resources (the game database) can be 
+found in WOFText.r.

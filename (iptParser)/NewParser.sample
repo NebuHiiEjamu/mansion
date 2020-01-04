@@ -1,0 +1,60 @@
+// Sample Parse Table...
+
+#define P_MatchFail	0x0000
+#define P_MatchFork	0x0100
+#define P_Succeed	0x0200
+
+// Note: Switch statements are a series of MatchForks, until last 'case'
+//      which is MatchFail
+// If statements are MatchFails
+// keyVals are Succeeds
+short gParseTab[] = {
+	P_MatchFork | 'G', 	0xXXXX,		// (offset to 'D'),
+		P_MatchFork | 'L',	0xXXXX,		// (offset to 'O'),
+			'O',
+			'B',
+			'A',
+			'L',
+			P_MatchFork | '\0', 0xXXXXX,	// (offset to 'M'),
+				P_Succeed | sf_GLOBAL,
+			'M',
+			'S',
+			'G',
+			'\0',
+			P_Succeed | sf_GLOBALMSG,
+		P_MatchFork | 'O' (offset),
+		.
+		.
+		.
+	P_MatchFork | 'D' (offset),
+	.
+	.
+	.
+			
+// Parser....
+keyVal = -1L;
+i = 0;
+while (1) {
+	code = gParseTab[i] & 0xFF00;
+	val = gParseTab[i] & 0x00FF;
+	switch (code) {
+	case P_MatchFork:
+		if (*(sp++) == val)
+			i += 2;
+		else
+			i = gParseTab[i+1];
+		continue;
+	case P_MatchFail:
+		if (*(sp++) == val)
+			i++;
+		else
+			break;
+		continue;
+	case P_Fail:
+		break;
+	case P_Succeed:
+		keyVal = val;
+		break;
+	}
+	break;
+}
